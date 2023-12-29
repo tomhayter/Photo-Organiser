@@ -3,6 +3,7 @@ from os import listdir, rename
 from pathlib import Path
 from PIL import Image
 from datetime import datetime, date
+from alive_progress import alive_bar
 
 month_folder_names = {1: "01 - January",
                       2: "02 - February",
@@ -30,36 +31,45 @@ config = yaml.safe_load(open("config.yml"))
 
 input_folder = config["inputFolder"]
 photos = listdir(input_folder)
-for photo in photos:
-    if '.mp4' in photo:
-        continue
-    photo_path = f"{input_folder}/{photo}"
-    try:
-        timestamp = get_date_taken(photo_path)
-    except Exception:
-        continue
+total_counter = len(photos) * 2
+with alive_bar(total_counter) as bar:
+    for photo in photos:
+        if '.mp4' in photo:
+            bar()
+            bar()
+            continue
+        photo_path = f"{input_folder}/{photo}"
+        try:
+            timestamp = get_date_taken(photo_path)
+        except Exception:
+            bar()
+            bar()
+            continue
 
-    dt = datetime.strptime(timestamp, '%Y:%m:%d %H:%M:%S')
-    d = date(dt.year, dt.month, dt.day)
-    if d in photos_by_date.keys():
-        photos_by_date[d].append(photo)
-    else:
-        photos_by_date[d] = [photo]
-
-# print(photos_by_date)
-
-output_folder = config["outputFolder"]
-for index, photos in photos_by_date.items():
-    if len(photos) >= config["folderMin"]:
-        if index.day < 10:
-            path = f"{output_folder}/{index.year}/{month_folder_names[index.month]}/0{index.day}"
+        dt = datetime.strptime(timestamp, '%Y:%m:%d %H:%M:%S')
+        d = date(dt.year, dt.month, dt.day)
+        if d in photos_by_date.keys():
+            photos_by_date[d].append(photo)
         else:
-            path = f"{output_folder}/{index.year}/{month_folder_names[index.month]}/{index.day}"
-    else:
-        path = f"{output_folder}/{index.year}/{month_folder_names[index.month]}"
-    print(path)
-    Path(path).mkdir(parents=True, exist_ok=True)
-    for pic in photos:
-        old_file_path = f"{input_folder}/{pic}"
-        new_file_path = f"{path}/{pic}"
-        rename(old_file_path, new_file_path)
+            photos_by_date[d] = [photo]
+        bar()
+
+
+    output_folder = config["outputFolder"]
+    for index, photos in photos_by_date.items():
+        if len(photos) >= config["folderMin"]:
+            if index.day < 10:
+                path = f"{output_folder}/{index.year}/{month_folder_names[index.month]}/0{index.day}"
+            else:
+                path = f"{output_folder}/{index.year}/{month_folder_names[index.month]}/{index.day}"
+        else:
+            path = f"{output_folder}/{index.year}/{month_folder_names[index.month]}"
+        print(path)
+        Path(path).mkdir(parents=True, exist_ok=True)
+        for pic in photos:
+            old_file_path = f"{input_folder}/{pic}"
+            new_file_path = f"{path}/{pic}"
+            rename(old_file_path, new_file_path)
+            bar()
+
+print(f"\n{len(listdir(input_folder))} files not sorted.")
